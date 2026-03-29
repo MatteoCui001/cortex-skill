@@ -1,3 +1,8 @@
+---
+name: cortex-wechat
+description: Cortex knowledge assistant — ingest links/text from WeChat into local Cortex, view notifications inbox, submit signal feedback. Requires local Cortex instance (auto-installed on first use via install.sh).
+---
+
 # cortex-openclaw-wechat
 
 Connect your local Cortex knowledge infrastructure to WeChat via OpenClaw.
