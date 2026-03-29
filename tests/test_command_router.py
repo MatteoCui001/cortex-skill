@@ -112,11 +112,31 @@ class TestOpenClawSink:
         assert "test" in captured.out
 
 
-class TestBootstrapDeps:
+class TestConfigLoader:
 
-    def test_check_dependencies_returns_dict(self):
-        from bootstrap_local_cortex import check_dependencies
-        status = check_dependencies()
-        assert isinstance(status, dict)
-        assert "python" in status
-        assert "git" in status
+    def test_client_from_config_defaults(self, tmp_path, monkeypatch):
+        """client_from_config returns defaults when no config file exists."""
+        monkeypatch.setattr(
+            "command_router.SKILL_CONFIG_PATH", tmp_path / "missing.yaml"
+        )
+        from command_router import client_from_config
+        client = client_from_config()
+        assert client.base_url == "http://127.0.0.1:8420/api/v1"
+        assert client.workspace == "default"
+        assert client.api_token == ""
+
+    def test_client_from_config_reads_yaml(self, tmp_path, monkeypatch):
+        """client_from_config reads skill_config.yaml correctly."""
+        cfg = tmp_path / "skill_config.yaml"
+        cfg.write_text(
+            'cortex:\n'
+            '  base_url: http://10.0.0.1:9999/api/v1\n'
+            '  api_token: "test-token-123"\n'
+            '  workspace: myws\n'
+        )
+        monkeypatch.setattr("command_router.SKILL_CONFIG_PATH", cfg)
+        from command_router import client_from_config
+        client = client_from_config()
+        assert client.base_url == "http://10.0.0.1:9999/api/v1"
+        assert client.api_token == "test-token-123"
+        assert client.workspace == "myws"
