@@ -14,19 +14,34 @@ Connect your local Cortex knowledge infrastructure to WeChat via OpenClaw.
 - **Feedback**: Rate signals (useful / not_useful / wrong / save_for_later)
 - **Push**: Receive Cortex webhook notifications via a local relay
 
-## First-time setup
+## Installation
 
-On first use, the skill runs a bootstrap that:
-1. Clones or updates the Cortex repo at `~/Projects/cortex`
-2. Runs `install.sh` — one command handles everything:
+### One-command install (for agents)
+
+```bash
+git clone https://github.com/MatteoCui001/cortex-openclaw-wechat.git ~/.openclaw/skills/cortex-wechat && python3 ~/.openclaw/skills/cortex-wechat/scripts/bootstrap_local_cortex.py
+```
+
+This single command:
+1. Installs the skill into the agent's skill directory
+2. Clones or updates the Cortex repo at `~/Projects/cortex`
+3. Runs `install.sh` — handles all dependencies automatically:
    - Homebrew, PostgreSQL 16, pgvector (source build), uv, Python 3.12
    - Database creation, 9 migrations (pgvector/zhparser optional)
    - Embedding model download, web console build
    - API token generation in `~/.cortex/env`
-3. Reads the generated API token
-4. Writes `~/.cortex/skill_config.yaml` with connection config + token
+4. Writes `~/.cortex/skill_config.yaml` with connection config + API token
+5. Creates a launchd plist for auto-start on login
+6. Starts Cortex and waits for health check
 
 Takes ~5-10 minutes on first run. Idempotent (safe to re-run).
+After completion, Cortex is running and accepting API calls at `http://127.0.0.1:8420`.
+
+### Verify installation
+
+```bash
+python3 ~/.openclaw/skills/cortex-wechat/scripts/doctor.py
+```
 
 ## Commands (via WeChat)
 
@@ -53,6 +68,24 @@ WeChat -> OpenClaw (iLink) -> Skill (command router)
                                   |
                                   v
                            OpenClaw Sink -> WeChat push
+```
+
+## Service management
+
+Cortex runs as a launchd service (auto-starts on login):
+
+```bash
+# Check status
+launchctl list | grep cortex
+
+# Stop
+launchctl unload ~/Library/LaunchAgents/com.cortex.serve.plist
+
+# Start
+launchctl load ~/Library/LaunchAgents/com.cortex.serve.plist
+
+# Logs
+tail -f ~/.cortex/cortex.log
 ```
 
 ## Configuration
