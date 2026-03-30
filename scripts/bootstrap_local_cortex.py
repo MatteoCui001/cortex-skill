@@ -24,12 +24,22 @@ CORTEX_DIR = Path.home() / "Projects" / "cortex"
 CORTEX_REPO = os.environ.get(
     "CORTEX_REPO", "https://github.com/MatteoCui001/cortex.git"
 )
+SKILL_REPO = "https://github.com/MatteoCui001/cortex-skill.git"
 ENV_FILE = Path.home() / ".cortex" / "env"
 SKILL_CONFIG_PATH = Path.home() / ".cortex" / "skill_config.yaml"
 PLIST_LABEL = "com.cortex.serve"
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{PLIST_LABEL}.plist"
 DEFAULT_API_PORT = 8420
 DEFAULT_RELAY_PORT = 8421
+
+# Agent platform skill directories (checked in order)
+SKILL_DIRS = [
+    Path.home() / ".claude" / "skills",       # Claude Code
+    Path.home() / ".openclaw" / "skills",      # OpenClaw
+    Path.home() / ".codex" / "skills",         # Codex
+    Path.home() / ".agents" / "skills",        # Generic agents
+]
+SKILL_NAME = "cortex"
 
 
 def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
@@ -80,8 +90,6 @@ cortex:
   base_url: http://127.0.0.1:{DEFAULT_API_PORT}/api/v1
   api_token: "{api_token}"
   workspace: default
-openclaw:
-  ingress_url: ""
 relay:
   port: {DEFAULT_RELAY_PORT}
   enabled: false
@@ -162,6 +170,34 @@ def write_launchd_plist(cortex_dir: Path) -> None:
     print(f"  Written to {PLIST_PATH}")
 
 
+def register_skill() -> list[Path]:
+    """Register the skill in all detected agent platform directories."""
+    print("\n=== Registering skill in agent platforms ===")
+    # Find where this script lives — that's the skill repo root
+    skill_repo_dir = Path(__file__).resolve().parent.parent
+    registered: list[Path] = []
+
+    for skills_dir in SKILL_DIRS:
+        if not skills_dir.is_dir():
+            continue
+        target = skills_dir / SKILL_NAME
+        if target.is_symlink() or target.is_dir():
+            print(f"  [ok] Already registered: {target}")
+            registered.append(target)
+            continue
+        # Create symlink to the skill repo
+        target.symlink_to(skill_repo_dir)
+        print(f"  [+]  Registered: {target} -> {skill_repo_dir}")
+        registered.append(target)
+
+    if not registered:
+        print("  [--] No agent platform directories found.")
+        print(f"       Searched: {', '.join(str(d) for d in SKILL_DIRS)}")
+        print(f"       The skill is still usable directly from: {skill_repo_dir}")
+
+    return registered
+
+
 def start_service() -> None:
     """Load (or reload) the launchd plist to start Cortex."""
     print("\n=== Starting Cortex service ===")
@@ -225,13 +261,16 @@ def main() -> int:
     # 4. Write skill config with token
     write_skill_config(api_token)
 
-    # 5. Create launchd plist (auto-start on login + keep alive)
+    # 5. Register skill in detected agent platforms
+    register_skill()
+
+    # 6. Create launchd plist (auto-start on login + keep alive)
     write_launchd_plist(cortex_dir)
 
-    # 6. Start the service now
+    # 7. Start the service now
     start_service()
 
-    # 7. Wait for health
+    # 8. Wait for health
     healthy = wait_for_health()
 
     print("\n=== Bootstrap complete! ===")
